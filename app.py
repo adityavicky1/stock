@@ -11,13 +11,17 @@ st.set_page_config(
 )
 
 st.title("📈 Interactive Stock Price & EMA Dashboard")
-st.markdown("Enter a stock ticker, select your preferred time frame, and analyze price trends alongside custom **Exponential Moving Averages (EMAs)**.")
+st.markdown("Enter a stock ticker (e.g., `RELIANCE.NS`, `TCS.NS`, `AAPL`), select your preferred time frame, and analyze trends with custom **Exponential Moving Averages (EMAs)**.")
 
 # --- SIDEBAR CONFIGURATION ---
 st.sidebar.header("Configuration")
 
-# 1. Ticker Input
-ticker_symbol = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TSLA, RELIANCE.NS)", value="AAPL").upper()
+# 1. Ticker Input (Default set to an Indian stock example)
+ticker_symbol = st.sidebar.text_input("Stock Ticker (e.g., RELIANCE.NS, TCS.NS, AAPL)", value="RELIANCE.NS").upper()
+
+# Determine currency symbol based on exchange suffix
+is_indian_stock = ".NS" in ticker_symbol or ".BO" in ticker_symbol or ticker_symbol.startswith("^")
+currency_symbol = "₹" if is_indian_stock else "$"
 
 # 2. Time Frame Selection Mapping
 timeframe_mapping = {
@@ -59,7 +63,7 @@ with st.spinner(f"Fetching data for {ticker_symbol}..."):
     df, stock_info, error = fetch_stock_data(ticker_symbol, current_period, current_interval)
 
 if error or df is None or df.empty:
-    st.error(f"Could not retrieve data for ticker symbol: `{ticker_symbol}`. Please check the spelling or try another symbol (e.g., MSFT, GOOGL).")
+    st.error(f"Could not retrieve data for ticker symbol: `{ticker_symbol}`. Please ensure you include the exchange suffix for Indian stocks (e.g., `.NS` for NSE or `.BO` for BSE).")
 else:
     # --- DATA PROCESSING (EMA Calculation) ---
     if enable_ema1:
@@ -73,14 +77,14 @@ else:
     price_change_pct = (price_change / df["Close"].iloc[-2]) * 100
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Current Price", f"${current_price:.2f}" if "NS" not in ticker_symbol else f"₹{current_price:.2f}", f"{price_change:+.2f} ({price_change_pct:+.2f}%)")
-    col2.metric("Company Name", stock_info.get("longName", ticker_symbol))
+    col1.metric("Current Price", f"{currency_symbol}{current_price:,.2f}", f"{price_change:+,.2f} ({price_change_pct:+.2f}%)")
+    col2.metric("Company / Asset Name", stock_info.get("longName", ticker_symbol))
     col3.metric("Sector", stock_info.get("sector", "N/A"))
 
     # --- PLOTTING WITH PLOTLY ---
     fig = go.Figure()
 
-    # Candlestick or Line Chart (Using Line for cleaner view across multi-year intervals, or Candlestick if daily)
+    # Plot Close Price Line
     fig.add_trace(go.Scatter(
         x=df.index, 
         y=df["Close"], 
@@ -113,7 +117,7 @@ else:
     fig.update_layout(
         title=f"{ticker_symbol} Price Chart ({selected_timeframe})",
         xaxis_title="Date",
-        yaxis_title="Price",
+        yaxis_title=f"Price ({currency_symbol})",
         template="plotly_dark",
         height=550,
         margin=dict(l=10, r=10, t=40, b=10),
